@@ -2348,9 +2348,9 @@ h4 { font-size: 1.125rem; }
 }
 
 .admin-modal-dialog {
-  max-width: 1120px;
-  width: 95%;
-  max-height: 90vh;
+  max-width: 1440px;
+  width: 96vw;
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
 }
@@ -2420,7 +2420,7 @@ h4 { font-size: 1.125rem; }
 .admin-modal-body {
   padding: 24px;
   overflow-y: auto;
-  max-height: calc(90vh - 170px);
+  max-height: calc(92vh - 170px);
 }
 
 /* Stat Cards */
@@ -2519,6 +2519,7 @@ h4 { font-size: 1.125rem; }
 
 .admin-table {
   width: 100%;
+  min-width: 980px;
   border-collapse: collapse;
   font-size: 0.88rem;
   text-align: left;
@@ -2528,15 +2529,27 @@ h4 { font-size: 1.125rem; }
   background: var(--neutral-50);
   color: var(--neutral-700);
   font-weight: 700;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--neutral-200);
   white-space: nowrap;
 }
 
 .admin-table td {
-  padding: 12px 14px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--neutral-200);
   vertical-align: middle;
+}
+
+.admin-table th.col-nowrap,
+.admin-table td.col-nowrap {
+  white-space: nowrap;
+}
+
+.admin-table .col-title {
+  min-width: 320px;
+  max-width: 580px;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .admin-table tr:last-child td {

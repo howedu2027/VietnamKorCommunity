@@ -1703,14 +1703,14 @@
           <table class="admin-table" id="admin-posts-table">
             <thead>
               <tr>
-                <th>카테고리</th>
-                <th>제목 (3개 국어)</th>
-                <th>작성자</th>
-                <th>국적</th>
-                <th>조회/좋아요</th>
-                <th>댓글</th>
-                <th>작성일</th>
-                <th>관리</th>
+                <th class="col-nowrap" style="width: 100px;">카테고리</th>
+                <th style="min-width: 320px;">제목 (3개 국어)</th>
+                <th class="col-nowrap">작성자</th>
+                <th class="col-nowrap">국적</th>
+                <th class="col-nowrap">조회/좋아요</th>
+                <th class="col-nowrap">댓글</th>
+                <th class="col-nowrap">작성일</th>
+                <th class="col-nowrap" style="text-align: center;">관리</th>
               </tr>
             </thead>
             <tbody>
@@ -1718,22 +1718,22 @@
                 const title = p.title[currentLang] || p.title.vi || p.title.ko;
                 return `
                   <tr id="admin-row-post-${p.id}">
-                    <td><span class="badge" style="font-size:0.75rem;">${p.category}</span></td>
-                    <td>
+                    <td class="col-nowrap"><span class="badge" style="font-size:0.75rem;">${p.category}</span></td>
+                    <td class="col-title">
                       <a href="javascript:void(0)" onclick="window.HoweduBridge.openPost('${p.id}')" style="color: var(--primary-700); font-weight: 600;">
                         ${title}
                       </a>
                     </td>
-                    <td>${p.author}</td>
-                    <td>
+                    <td class="col-nowrap"><strong>${p.author}</strong></td>
+                    <td class="col-nowrap">
                       <span class="${p.country === 'vietnam' ? 'badge-country-vn' : 'badge-country-kr'}">
                         ${p.country === 'vietnam' ? '🇻🇳 베트남' : '🇰🇷 한국'}
                       </span>
                     </td>
-                    <td>👁️ ${p.views} · ❤️ ${p.likes}</td>
-                    <td>💬 ${p.commentCount}</td>
-                    <td style="font-size: 0.8rem; color: var(--neutral-500);">${p.createdAt.slice(0, 10)}</td>
-                    <td>
+                    <td class="col-nowrap">👁️ ${p.views} · ❤️ ${p.likes}</td>
+                    <td class="col-nowrap">💬 ${p.commentCount}</td>
+                    <td class="col-nowrap" style="font-size: 0.82rem; color: var(--neutral-500);">${p.createdAt.slice(0, 10)}</td>
+                    <td class="col-nowrap" style="text-align: center;">
                       <button class="btn-danger-sm" onclick="window.HoweduBridge.adminDeletePost('${p.id}')">
                         🗑️ 삭제
                       </button>
@@ -1769,31 +1769,31 @@
           <table class="admin-table" id="admin-users-table">
             <thead>
               <tr>
-                <th>아이디</th>
-                <th>이름</th>
-                <th>국적</th>
-                <th>직책 / 담당과목</th>
-                <th>이메일</th>
-                <th>작성글 수</th>
-                <th>가입일</th>
-                <th>관리</th>
+                <th class="col-nowrap">아이디</th>
+                <th class="col-nowrap">이름</th>
+                <th class="col-nowrap">국적</th>
+                <th class="col-nowrap">직책 / 담당과목</th>
+                <th class="col-nowrap">이메일</th>
+                <th class="col-nowrap">작성글 수</th>
+                <th class="col-nowrap">가입일</th>
+                <th class="col-nowrap" style="text-align: center;">관리</th>
               </tr>
             </thead>
             <tbody>
               ${users.map(u => `
                 <tr id="admin-row-user-${u.id}">
-                  <td><code>${u.username}</code> ${u.username === 'admin' ? '👑' : ''}</td>
-                  <td><strong>${u.name}</strong></td>
-                  <td>
+                  <td class="col-nowrap"><code>${u.username}</code> ${u.username === 'admin' ? '👑' : ''}</td>
+                  <td class="col-nowrap"><strong>${u.name}</strong></td>
+                  <td class="col-nowrap">
                     <span class="${u.country === 'vietnam' ? 'badge-country-vn' : 'badge-country-kr'}">
                       ${u.country === 'vietnam' ? '🇻🇳 베트남' : '🇰🇷 한국'}
                     </span>
                   </td>
-                  <td>${u.role}</td>
-                  <td style="font-size: 0.82rem;">${u.email}</td>
-                  <td><strong>${u.post_count}</strong>개</td>
-                  <td style="font-size: 0.8rem; color: var(--neutral-500);">${u.created_at ? u.created_at.slice(0, 10) : '-'}</td>
-                  <td>
+                  <td class="col-nowrap">${u.role}</td>
+                  <td class="col-nowrap" style="font-size: 0.82rem;">${u.email}</td>
+                  <td class="col-nowrap"><strong>${u.post_count}</strong>개</td>
+                  <td class="col-nowrap" style="font-size: 0.82rem; color: var(--neutral-500);">${u.created_at ? u.created_at.slice(0, 10) : '-'}</td>
+                  <td class="col-nowrap" style="text-align: center;">
                     ${u.username === 'admin' ? '<span style="color:var(--neutral-400); font-size:0.8rem;">관리자 보호</span>' : `
                       <button class="btn-danger-sm" onclick="window.HoweduBridge.adminDeleteUser('${u.id}')">
                         탈퇴 처리
@@ -1829,30 +1829,30 @@
           <table class="admin-table">
             <thead>
               <tr>
-                <th>작성자</th>
-                <th>원문 게시글</th>
-                <th>댓글 내용 (다국어)</th>
-                <th>작성일시</th>
-                <th>관리</th>
+                <th class="col-nowrap">작성자</th>
+                <th class="col-nowrap">원문 게시글</th>
+                <th style="min-width: 300px;">댓글 내용 (다국어)</th>
+                <th class="col-nowrap">작성일시</th>
+                <th class="col-nowrap" style="text-align: center;">관리</th>
               </tr>
             </thead>
             <tbody>
               ${comments.map(c => `
                 <tr id="admin-row-comment-${c.id}">
-                  <td>
+                  <td class="col-nowrap">
                     <strong>${c.author}</strong><br>
                     <span style="font-size: 0.75rem; color: var(--neutral-500);">${c.country === 'vietnam' ? '🇻🇳 베트남' : '🇰🇷 한국'}</span>
                   </td>
-                  <td style="max-width: 200px;">
-                    <a href="javascript:void(0)" onclick="window.HoweduBridge.openPost('${c.post_id}')" style="color: var(--primary-700); font-size: 0.82rem;">
+                  <td class="col-nowrap" style="max-width: 260px; overflow: hidden; text-overflow: ellipsis;">
+                    <a href="javascript:void(0)" onclick="window.HoweduBridge.openPost('${c.post_id}')" style="color: var(--primary-700); font-size: 0.82rem; font-weight: 600;">
                       ${c.post_title_ko || c.post_title_vi || c.post_id}
                     </a>
                   </td>
-                  <td style="max-width: 350px;">
-                    <div style="font-size: 0.88rem;">${c.text_ko || c.text_vi || c.text_en}</div>
-                  </td>
-                  <td style="font-size: 0.78rem; color: var(--neutral-500);">${c.created_at ? c.created_at.slice(0, 16) : '-'}</td>
                   <td>
+                    <div style="font-size: 0.88rem; line-height: 1.4;">${c.text_ko || c.text_vi || c.text_en}</div>
+                  </td>
+                  <td class="col-nowrap" style="font-size: 0.82rem; color: var(--neutral-500);">${c.created_at ? c.created_at.slice(0, 16) : '-'}</td>
+                  <td class="col-nowrap" style="text-align: center;">
                     <button class="btn-danger-sm" onclick="window.HoweduBridge.adminDeleteComment('${c.id}')">
                       삭제
                     </button>
