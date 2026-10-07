@@ -114,7 +114,12 @@ function initTables() {
 function seedData() {
   // Check if data already exists
   const count = db.prepare('SELECT COUNT(*) as cnt FROM posts').get();
-  if (count.cnt > 0) return;
+  if (count.cnt > 0) {
+    try {
+      db.prepare("UPDATE posts SET author = 'HoweduBridge 운영팀', author_initial = 'H' WHERE id = 'post7'").run();
+    } catch (_) {}
+    return;
+  }
 
   const AVATAR_COLORS = [
     'linear-gradient(135deg, #e85d3a, #f97b5e)',
@@ -429,7 +434,7 @@ function seedData() {
     // 공지사항
     {
       id: 'post7', category: 'notice', lang: 'ko',
-      author: 'HoweduBridge 운영팀', initial: 'E', color: AVATAR_COLORS[2], country: 'korea',
+      author: 'HoweduBridge 운영팀', initial: 'H', color: AVATAR_COLORS[2], country: 'korea',
       title_ko: '[공지] HoweduBridge 플랫폼 업데이트 안내',
       title_en: '[Notice] HoweduBridge Platform Update',
       title_vi: '[Thông báo] Cập nhật nền tảng HoweduBridge',
