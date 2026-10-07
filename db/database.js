@@ -1,15 +1,36 @@
 // ===== Database Setup (SQLite using Node.js built-in node:sqlite) =====
 const { DatabaseSync } = require('node:sqlite');
+const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'edubridge.db');
+const isVercel = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DB_DIR = isVercel ? '/tmp' : __dirname;
+const DB_PATH = path.join(DB_DIR, 'edubridge.db');
 
 let db;
 
+function ensureVercelDb() {
+  if (isVercel) {
+    const bundledDbPath = path.join(__dirname, 'edubridge.db');
+    if (!fs.existsSync(DB_PATH) && fs.existsSync(bundledDbPath)) {
+      try {
+        fs.copyFileSync(bundledDbPath, DB_PATH);
+      } catch (err) {
+        console.error('Failed to copy edubridge.db to /tmp:', err);
+      }
+    }
+  }
+}
+
 function getDb() {
   if (!db) {
+    ensureVercelDb();
     db = new DatabaseSync(DB_PATH);
-    db.exec('PRAGMA journal_mode = WAL;');
+    if (!isVercel) {
+      db.exec('PRAGMA journal_mode = WAL;');
+    } else {
+      db.exec('PRAGMA journal_mode = MEMORY;');
+    }
     db.exec('PRAGMA foreign_keys = ON;');
     initTables();
     seedData();

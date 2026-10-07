@@ -1,24 +1,39 @@
 // ===== HoweduBridge Server =====
 const express = require('express');
 const multer = require('multer');
+const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('node:crypto');
 const { getDb } = require('./db/database');
 const { translatePost, translateComment, translateText } = require('./services/translator');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+const isVercel = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
+// Uploads directory (/tmp on Vercel)
+const uploadDir = isVercel ? '/tmp/uploads' : path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  try {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  } catch (e) {
+    console.error('Failed to create uploadDir:', e);
+  }
+}
 
 // ===== Middleware =====
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(uploadDir));
+if (isVercel) {
+  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+}
 
 // ===== Multer (Image Upload) =====
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, 'uploads'));
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -43,6 +58,27 @@ const upload = multer({
 });
 
 // ===== API Routes =====
+
+// --- Health check endpoint ---
+app.get('/api/health', (req, res) => {
+  try {
+    const db = getDb();
+    const count = db.prepare('SELECT COUNT(*) as cnt FROM posts').get();
+    res.json({
+      status: 'ok',
+      nodeVersion: process.version,
+      isVercel,
+      postCount: count.cnt
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'error',
+      error: err.message,
+      nodeVersion: process.version,
+      isVercel
+    });
+  }
+});
 
 // --- GET all posts (with optional category filter) ---
 app.get('/api/posts', (req, res) => {
@@ -453,9 +489,13 @@ app.use((err, req, res, next) => {
 });
 
 // ===== Start Server =====
-app.listen(PORT, () => {
-  console.log(`\n🌏 HoweduBridge Server is running!`);
-  console.log(`   Local: http://localhost:${PORT}`);
-  console.log(`   Database: SQLite (db/edubridge.db)`);
-  console.log(`   Uploads: ./uploads/\n`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`\n🌏 HoweduBridge Server is running!`);
+    console.log(`   Local: http://localhost:${PORT}`);
+    console.log(`   Database: SQLite (db/edubridge.db)`);
+    console.log(`   Uploads: ./uploads/\n`);
+  });
+}
+
+module.exports = app;
