@@ -59,6 +59,9 @@
           <span class="nav-user-name" id="nav-user-name">Nguyễn Thị Mai</span>
           <button class="btn btn-ghost btn-xs" id="btn-logout" data-i18n="nav_logout" title="Đăng xuất">🚪</button>
         </div>
+        <button class="btn btn-admin btn-sm" id="btn-open-admin" style="display: none;" title="관리자 센터">
+          <span>👑</span> <span data-i18n="nav_admin_panel">관리자 센터</span>
+        </button>
         <button class="btn btn-primary btn-sm" id="btn-write-post" data-i18n="nav_write">✏️ Viết bài</button>
         <button class="mobile-menu-btn" id="mobile-menu-btn">☰</button>
       </div>
@@ -444,6 +447,11 @@
             <button type="button" class="btn btn-ghost" id="btn-cancel-login" data-i18n="btn_cancel">Hủy</button>
             <button type="submit" class="btn btn-primary" data-i18n="nav_login">Đăng nhập</button>
           </div>
+          <div class="login-quick-bar" style="margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--neutral-300); text-align: center;">
+            <button type="button" class="btn btn-outline btn-sm w-full" id="btn-quick-admin-login" style="width: 100%; border-color: #f59e0b; color: #b45309; background: #fffbeb; font-weight: 600;" data-i18n="admin_login_demo">
+              👑 관리자 계정으로 바로 로그인 (admin)
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -488,6 +496,46 @@
       <!-- Dynamic Tab Content Pane -->
       <div class="modal-body info-modal-body" id="info-modal-body">
         <!-- Rendered by JavaScript dynamically in currentLang -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ADMIN DASHBOARD MODAL ===== -->
+  <div class="modal-overlay" id="admin-modal">
+    <div class="modal admin-modal-dialog">
+      <div class="modal-header">
+        <div class="admin-modal-header-left">
+          <div class="admin-modal-header-icon">👑</div>
+          <div>
+            <h3 id="admin-modal-title" data-i18n="admin_title">HoweduBridge 시스템 관리자 센터</h3>
+            <p id="admin-modal-subtitle" class="admin-modal-subtitle" data-i18n="admin_subtitle">게시글, 회원, 댓글 및 플랫폼 활동 통계 통합 관리</p>
+          </div>
+        </div>
+        <button class="modal-close" id="modal-close-admin">✕</button>
+      </div>
+
+      <!-- Admin Tabs Bar -->
+      <div class="admin-tabs-bar" id="admin-tabs-bar">
+        <button class="admin-tab-btn active" data-tab="stats" id="admin-tab-stats">
+          <span>📊</span> <span data-i18n="admin_tab_stats">운영 현황</span>
+        </button>
+        <button class="admin-tab-btn" data-tab="posts" id="admin-tab-posts">
+          <span>📝</span> <span data-i18n="admin_tab_posts">게시글 관리</span>
+        </button>
+        <button class="admin-tab-btn" data-tab="users" id="admin-tab-users">
+          <span>👥</span> <span data-i18n="admin_tab_users">회원 관리</span>
+        </button>
+        <button class="admin-tab-btn" data-tab="comments" id="admin-tab-comments">
+          <span>💬</span> <span data-i18n="admin_tab_comments">댓글 관리</span>
+        </button>
+        <button class="admin-tab-btn" data-tab="notice" id="admin-tab-notice">
+          <span>📢</span> <span data-i18n="admin_tab_notice">공지 발송</span>
+        </button>
+      </div>
+
+      <!-- Dynamic Admin Content Pane -->
+      <div class="modal-body admin-modal-body" id="admin-modal-body">
+        <!-- Rendered by JavaScript dynamically -->
       </div>
     </div>
   </div>

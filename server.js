@@ -334,6 +334,10 @@ app.post('/api/register', (req, res) => {
     ];
     const avatarColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
 
+    if (username.toLowerCase() === 'admin') {
+      return res.status(400).json({ error: 'admin 아이디는 사용할 수 없습니다.' });
+    }
+
     // Insert user
     db.prepare(`
       INSERT INTO users (id, username, password, name, country, role, email, avatar_color, initial)
@@ -354,7 +358,8 @@ app.post('/api/register', (req, res) => {
       role,
       email,
       initial,
-      avatarColor
+      avatarColor,
+      isAdmin: false
     });
   } catch (err) {
     console.error('Register error:', err);
@@ -385,7 +390,8 @@ app.post('/api/login', (req, res) => {
       role: user.role,
       email: user.email,
       initial: user.initial,
-      avatarColor: user.avatar_color
+      avatarColor: user.avatar_color,
+      isAdmin: user.username === 'admin'
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -459,6 +465,168 @@ app.post('/api/contact', (req, res) => {
   } catch (err) {
     console.error('Contact API error:', err);
     res.status(500).json({ error: 'Lỗi gửi tin nhắn liên hệ / 문의 저장 중 오류가 발생했습니다.' });
+  }
+});
+
+// ==========================================
+// ===== ADMIN API ROUTES =====
+// ==========================================
+
+// --- Admin Stats ---
+app.get('/api/admin/stats', (req, res) => {
+  try {
+    const db = getDb();
+    const totalPosts = db.prepare('SELECT COUNT(*) as count FROM posts').get().count;
+    const totalUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE username != 'admin'").get().count;
+    const totalComments = db.prepare('SELECT COUNT(*) as count FROM comments').get().count;
+    const totalViews = db.prepare('SELECT COALESCE(SUM(views), 0) as sum FROM posts').get().sum;
+    const totalLikes = db.prepare('SELECT COALESCE(SUM(likes), 0) as sum FROM posts').get().sum;
+
+    const postsByCountry = db.prepare(`
+      SELECT country, COUNT(*) as count FROM posts GROUP BY country
+    `).all();
+
+    const usersByCountry = db.prepare(`
+      SELECT country, COUNT(*) as count FROM users WHERE username != 'admin' GROUP BY country
+    `).all();
+
+    const postsByCategory = db.prepare(`
+      SELECT category, COUNT(*) as count FROM posts GROUP BY category
+    `).all();
+
+    res.json({
+      totalPosts,
+      totalUsers,
+      totalComments,
+      totalViews,
+      totalLikes,
+      postsByCountry,
+      usersByCountry,
+      postsByCategory
+    });
+  } catch (err) {
+    console.error('Admin stats error:', err);
+    res.status(500).json({ error: '관리자 통계 조회 실패' });
+  }
+});
+
+// --- Admin Posts list ---
+app.get('/api/admin/posts', (req, res) => {
+  try {
+    const db = getDb();
+    const posts = db.prepare(`
+      SELECT p.*, (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) as comment_count
+      FROM posts p
+      ORDER BY p.created_at DESC
+    `).all();
+
+    res.json(posts.map(p => ({
+      id: p.id,
+      category: p.category,
+      lang: p.lang,
+      author: p.author,
+      authorInitial: p.author_initial,
+      country: p.country,
+      title: { ko: p.title_ko, en: p.title_en, vi: p.title_vi },
+      content: { ko: p.content_ko, en: p.content_en, vi: p.content_vi },
+      imageUrl: p.image_url,
+      views: p.views,
+      likes: p.likes,
+      commentCount: p.comment_count,
+      createdAt: p.created_at
+    })));
+  } catch (err) {
+    console.error('Admin posts error:', err);
+    res.status(500).json({ error: '게시글 목록 조회 실패' });
+  }
+});
+
+// --- Admin Delete Post ---
+app.delete('/api/admin/posts/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const id = req.params.id;
+    db.prepare('DELETE FROM comments WHERE post_id = ?').run(id);
+    const result = db.prepare('DELETE FROM posts WHERE id = ?').run(id);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+    }
+    res.json({ success: true, message: '게시글이 삭제되었습니다.' });
+  } catch (err) {
+    console.error('Admin delete post error:', err);
+    res.status(500).json({ error: '게시글 삭제 실패' });
+  }
+});
+
+// --- Admin Users list ---
+app.get('/api/admin/users', (req, res) => {
+  try {
+    const db = getDb();
+    const users = db.prepare(`
+      SELECT u.id, u.username, u.name, u.country, u.role, u.email, u.avatar_color, u.initial, u.created_at,
+             (SELECT COUNT(*) FROM posts p WHERE p.author = u.name) as post_count
+      FROM users u
+      ORDER BY u.created_at DESC
+    `).all();
+
+    res.json(users);
+  } catch (err) {
+    console.error('Admin users error:', err);
+    res.status(500).json({ error: '회원 목록 조회 실패' });
+  }
+});
+
+// --- Admin Delete User ---
+app.delete('/api/admin/users/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const id = req.params.id;
+    const user = db.prepare('SELECT username FROM users WHERE id = ?').get(id);
+    if (!user) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    }
+    if (user.username === 'admin') {
+      return res.status(400).json({ error: '최고 관리자 계정은 삭제할 수 없습니다.' });
+    }
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    res.json({ success: true, message: '회원이 삭제되었습니다.' });
+  } catch (err) {
+    console.error('Admin delete user error:', err);
+    res.status(500).json({ error: '회원 삭제 실패' });
+  }
+});
+
+// --- Admin Comments list ---
+app.get('/api/admin/comments', (req, res) => {
+  try {
+    const db = getDb();
+    const comments = db.prepare(`
+      SELECT c.*, p.title_vi as post_title_vi, p.title_ko as post_title_ko, p.title_en as post_title_en
+      FROM comments c
+      LEFT JOIN posts p ON p.id = c.post_id
+      ORDER BY c.created_at DESC
+      LIMIT 100
+    `).all();
+
+    res.json(comments);
+  } catch (err) {
+    console.error('Admin comments error:', err);
+    res.status(500).json({ error: '댓글 목록 조회 실패' });
+  }
+});
+
+// --- Admin Delete Comment ---
+app.delete('/api/admin/comments/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const result = db.prepare('DELETE FROM comments WHERE id = ?').run(req.params.id);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+    }
+    res.json({ success: true, message: '댓글이 삭제되었습니다.' });
+  } catch (err) {
+    console.error('Admin delete comment error:', err);
+    res.status(500).json({ error: '댓글 삭제 실패' });
   }
 });
 

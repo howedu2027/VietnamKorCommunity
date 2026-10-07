@@ -52,6 +52,7 @@
     initSmoothScrolling();
     initFooterSubmenus();
     initInfoModal();
+    initAdminDashboard();
     animateCounters();
 
     // Default to Vietnamese on startup
@@ -247,6 +248,17 @@
         if (submitBtn) submitBtn.disabled = false;
       }
     });
+
+    // Quick Admin Login Demo Button
+    document.getElementById('btn-quick-admin-login')?.addEventListener('click', () => {
+      const usernameInput = document.getElementById('login-username');
+      const passwordInput = document.getElementById('login-password');
+      if (usernameInput && passwordInput) {
+        usernameInput.value = 'admin';
+        passwordInput.value = 'admin1234';
+        document.getElementById('login-form')?.requestSubmit();
+      }
+    });
   }
 
   function updateAuthUI() {
@@ -254,6 +266,7 @@
     const userProfile = document.getElementById('nav-user-profile');
     const avatarEl = document.getElementById('nav-user-avatar');
     const nameEl = document.getElementById('nav-user-name');
+    const btnAdminPanel = document.getElementById('btn-open-admin');
 
     if (currentUser) {
       if (guestActions) guestActions.style.display = 'none';
@@ -263,11 +276,17 @@
           avatarEl.textContent = currentUser.initial || currentUser.name?.charAt(0) || '👤';
           if (currentUser.avatarColor) avatarEl.style.background = currentUser.avatarColor;
         }
-        if (nameEl) nameEl.textContent = currentUser.name;
+        if (nameEl) {
+          nameEl.textContent = currentUser.name + (currentUser.isAdmin ? ' 👑' : '');
+        }
+      }
+      if (btnAdminPanel) {
+        btnAdminPanel.style.display = currentUser.isAdmin ? 'inline-flex' : 'none';
       }
     } else {
       if (guestActions) guestActions.style.display = 'flex';
       if (userProfile) userProfile.style.display = 'none';
+      if (btnAdminPanel) btnAdminPanel.style.display = 'none';
     }
   }
 
@@ -757,6 +776,7 @@
         <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
           <button class="btn btn-ghost btn-sm" onclick="window.HoweduBridge.likePost('${post.id}')">❤️ ${post.likes}</button>
           <span class="post-lang-tag lang-${displayLang}">${langNames[displayLang]}</span>
+          ${currentUser?.isAdmin ? `<button class="btn-danger-sm" onclick="window.HoweduBridge.adminDeletePost('${post.id}', true)">🗑️ ${currentLang==='vi'?'Xóa bài':'삭제'}</button>` : ''}
         </div>
       </div>
 
@@ -821,6 +841,7 @@
           <div class="comment-text">${text}</div>
           <div class="comment-actions">
             <span style="cursor:pointer;" onclick="window.HoweduBridge.showToast('❤️ ' + (currentLang==='vi'?'Đã thích bình luận!':'댓글 좋아요!'))">❤️ ${t.likes}</span>
+            ${currentUser?.isAdmin ? `<span style="cursor:pointer; color:#dc2626; margin-left:10px; font-weight:600; font-size:0.8rem;" onclick="window.HoweduBridge.adminDeleteComment('${comment.id}', '${comment.post_id || ''}')">🗑️ ${currentLang==='vi'?'Xóa':'삭제'}</span>` : ''}
           </div>
         </div>
       </div>
@@ -1518,6 +1539,444 @@
     requestAnimationFrame(update);
   }
 
+  // ===== ADMIN DASHBOARD =====
+  function initAdminDashboard() {
+    const adminModal = document.getElementById('admin-modal');
+    const btnOpenAdmin = document.getElementById('btn-open-admin');
+    const btnCloseAdmin = document.getElementById('modal-close-admin');
+    const adminTabBtns = document.querySelectorAll('.admin-tab-btn');
+    let currentAdminTab = 'stats';
+
+    btnOpenAdmin?.addEventListener('click', () => {
+      adminModal.classList.add('active');
+      switchAdminTab('stats');
+    });
+
+    btnCloseAdmin?.addEventListener('click', () => {
+      adminModal.classList.remove('active');
+    });
+
+    adminModal?.addEventListener('click', (e) => {
+      if (e.target === adminModal) adminModal.classList.remove('active');
+    });
+
+    adminTabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        switchAdminTab(tab);
+      });
+    });
+
+    async function switchAdminTab(tabName) {
+      currentAdminTab = tabName;
+      adminTabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
+      const body = document.getElementById('admin-modal-body');
+      if (!body) return;
+
+      body.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--neutral-500);">Đang tải dữ liệu / 로딩 중...</div>';
+
+      try {
+        if (tabName === 'stats') {
+          await renderAdminStats(body);
+        } else if (tabName === 'posts') {
+          await renderAdminPosts(body);
+        } else if (tabName === 'users') {
+          await renderAdminUsers(body);
+        } else if (tabName === 'comments') {
+          await renderAdminComments(body);
+        } else if (tabName === 'notice') {
+          renderAdminNoticeForm(body);
+        }
+      } catch (err) {
+        body.innerHTML = `<div style="color: #dc2626; padding: 20px;">Lỗi tải dữ liệu / 데이터 로딩 오류: ${err.message}</div>`;
+      }
+    }
+
+    async function renderAdminStats(container) {
+      const res = await fetch('/api/admin/stats');
+      const stats = await res.json();
+
+      const vnPosts = stats.postsByCountry.find(c => c.country === 'vietnam')?.count || 0;
+      const krPosts = stats.postsByCountry.find(c => c.country === 'korea')?.count || 0;
+      const totalPostCountry = vnPosts + krPosts || 1;
+      const vnPostPercent = Math.round((vnPosts / totalPostCountry) * 100);
+      const krPostPercent = 100 - vnPostPercent;
+
+      const vnUsers = stats.usersByCountry.find(c => c.country === 'vietnam')?.count || 0;
+      const krUsers = stats.usersByCountry.find(c => c.country === 'korea')?.count || 0;
+      const totalUsersCountry = vnUsers + krUsers || 1;
+      const vnUserPercent = Math.round((vnUsers / totalUsersCountry) * 100);
+      const krUserPercent = 100 - vnUserPercent;
+
+      container.innerHTML = `
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <div class="admin-stat-icon" style="background: rgba(37, 99, 168, 0.12); color: #2563eb;">📝</div>
+            <div class="admin-stat-info">
+              <div class="admin-stat-val">${stats.totalPosts}</div>
+              <div class="admin-stat-label">${currentLang === 'vi' ? 'Tổng bài viết' : currentLang === 'ko' ? '총 게시글 수' : 'Total Posts'}</div>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="admin-stat-icon" style="background: rgba(232, 93, 58, 0.12); color: #e85d3a;">👥</div>
+            <div class="admin-stat-info">
+              <div class="admin-stat-val">${stats.totalUsers}</div>
+              <div class="admin-stat-label">${currentLang === 'vi' ? 'Giáo viên thành viên' : currentLang === 'ko' ? '총 교사 회원' : 'Total Teachers'}</div>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="admin-stat-icon" style="background: rgba(20, 145, 155, 0.12); color: #14919b;">💬</div>
+            <div class="admin-stat-info">
+              <div class="admin-stat-val">${stats.totalComments}</div>
+              <div class="admin-stat-label">${currentLang === 'vi' ? 'Tổng bình luận' : currentLang === 'ko' ? '누적 댓글' : 'Total Comments'}</div>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="admin-stat-icon" style="background: rgba(245, 158, 11, 0.12); color: #d97706;">👁️</div>
+            <div class="admin-stat-info">
+              <div class="admin-stat-val">${stats.totalViews?.toLocaleString()}</div>
+              <div class="admin-stat-label">${currentLang === 'vi' ? 'Tổng lượt xem' : currentLang === 'ko' ? '누적 조회수' : 'Total Views'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+          <div class="admin-dist-card">
+            <div class="admin-dist-header">
+              <strong>${currentLang === 'vi' ? 'Tỷ lệ bài viết theo quốc gia' : currentLang === 'ko' ? '국적별 게시글 비중' : 'Posts by Country'}</strong>
+              <span style="font-size: 0.85rem; color: var(--neutral-600);">🇻🇳 ${vnPostPercent}% vs 🇰🇷 ${krPostPercent}%</span>
+            </div>
+            <div class="admin-dist-bar">
+              <div class="admin-dist-vn" style="width: ${vnPostPercent}%;"></div>
+              <div class="admin-dist-kr" style="width: ${krPostPercent}%;"></div>
+            </div>
+            <div style="display:flex; justify-content: space-between; margin-top: 8px; font-size: 0.82rem; color: var(--neutral-500);">
+              <span>🇻🇳 베트남: ${vnPosts}건</span>
+              <span>🇰🇷 한국: ${krPosts}건</span>
+            </div>
+          </div>
+
+          <div class="admin-dist-card">
+            <div class="admin-dist-header">
+              <strong>${currentLang === 'vi' ? 'Tỷ lệ giáo viên theo quốc gia' : currentLang === 'ko' ? '국적별 회원 비중' : 'Members by Country'}</strong>
+              <span style="font-size: 0.85rem; color: var(--neutral-600);">🇻🇳 ${vnUserPercent}% vs 🇰🇷 ${krUserPercent}%</span>
+            </div>
+            <div class="admin-dist-bar">
+              <div class="admin-dist-vn" style="width: ${vnUserPercent}%;"></div>
+              <div class="admin-dist-kr" style="width: ${krUserPercent}%;"></div>
+            </div>
+            <div style="display:flex; justify-content: space-between; margin-top: 8px; font-size: 0.82rem; color: var(--neutral-500);">
+              <span>🇻🇳 베트남 교사: ${vnUsers}명</span>
+              <span>🇰🇷 한국 교사: ${krUsers}명</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-dist-card" style="margin-top: 16px;">
+          <div class="admin-dist-header">
+            <strong>${currentLang === 'vi' ? 'Phân loại chuyên mục' : currentLang === 'ko' ? '게시판 카테고리별 현황' : 'Posts by Category'}</strong>
+          </div>
+          <div style="display:flex; gap: 10px; flex-wrap: wrap;">
+            ${stats.postsByCategory.map(cat => `
+              <div style="background: var(--neutral-100); border: 1px solid var(--neutral-200); padding: 8px 14px; border-radius: var(--radius-md); font-size: 0.88rem;">
+                <strong>${cat.category === 'resource' ? '📚 자료공유' : cat.category === 'question' ? '❓ 질문/답변' : cat.category === 'discussion' ? '💬 토론' : '📢 공지사항'}:</strong>
+                <span style="color: var(--primary-700); font-weight: 700; margin-left: 4px;">${cat.count}건</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    async function renderAdminPosts(container) {
+      const res = await fetch('/api/admin/posts');
+      const posts = await res.json();
+
+      container.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+          <input type="text" id="admin-post-filter" class="form-input" style="max-width: 300px; padding: 6px 12px; font-size: 0.88rem;" placeholder="${currentLang === 'vi' ? 'Tìm bài viết hoặc tác giả...' : '게시글 제목 또는 작성자 검색...'}">
+          <div style="font-size: 0.88rem; color: var(--neutral-600);">${currentLang === 'vi' ? 'Tổng cộng' : '전체'}: <strong>${posts.length}</strong>${currentLang === 'vi' ? ' bài' : '개'}</div>
+        </div>
+        <div class="admin-table-container">
+          <table class="admin-table" id="admin-posts-table">
+            <thead>
+              <tr>
+                <th>카테고리</th>
+                <th>제목 (3개 국어)</th>
+                <th>작성자</th>
+                <th>국적</th>
+                <th>조회/좋아요</th>
+                <th>댓글</th>
+                <th>작성일</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${posts.map(p => {
+                const title = p.title[currentLang] || p.title.vi || p.title.ko;
+                return `
+                  <tr id="admin-row-post-${p.id}">
+                    <td><span class="badge" style="font-size:0.75rem;">${p.category}</span></td>
+                    <td>
+                      <a href="javascript:void(0)" onclick="window.HoweduBridge.openPost('${p.id}')" style="color: var(--primary-700); font-weight: 600;">
+                        ${title}
+                      </a>
+                    </td>
+                    <td>${p.author}</td>
+                    <td>
+                      <span class="${p.country === 'vietnam' ? 'badge-country-vn' : 'badge-country-kr'}">
+                        ${p.country === 'vietnam' ? '🇻🇳 베트남' : '🇰🇷 한국'}
+                      </span>
+                    </td>
+                    <td>👁️ ${p.views} · ❤️ ${p.likes}</td>
+                    <td>💬 ${p.commentCount}</td>
+                    <td style="font-size: 0.8rem; color: var(--neutral-500);">${p.createdAt.slice(0, 10)}</td>
+                    <td>
+                      <button class="btn-danger-sm" onclick="window.HoweduBridge.adminDeletePost('${p.id}')">
+                        🗑️ 삭제
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      const filterInput = document.getElementById('admin-post-filter');
+      filterInput?.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        document.querySelectorAll('#admin-posts-table tbody tr').forEach(row => {
+          const text = row.textContent.toLowerCase();
+          row.style.display = text.includes(query) ? '' : 'none';
+        });
+      });
+    }
+
+    async function renderAdminUsers(container) {
+      const res = await fetch('/api/admin/users');
+      const users = await res.json();
+
+      container.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <input type="text" id="admin-user-filter" class="form-input" style="max-width: 300px; padding: 6px 12px; font-size: 0.88rem;" placeholder="${currentLang === 'vi' ? 'Tìm thành viên...' : '회원 이름 또는 이메일 검색...'}">
+          <div style="font-size: 0.88rem; color: var(--neutral-600);">${currentLang === 'vi' ? 'Tổng thành viên' : '가입 회원'}: <strong>${users.length}</strong>명</div>
+        </div>
+        <div class="admin-table-container">
+          <table class="admin-table" id="admin-users-table">
+            <thead>
+              <tr>
+                <th>아이디</th>
+                <th>이름</th>
+                <th>국적</th>
+                <th>직책 / 담당과목</th>
+                <th>이메일</th>
+                <th>작성글 수</th>
+                <th>가입일</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${users.map(u => `
+                <tr id="admin-row-user-${u.id}">
+                  <td><code>${u.username}</code> ${u.username === 'admin' ? '👑' : ''}</td>
+                  <td><strong>${u.name}</strong></td>
+                  <td>
+                    <span class="${u.country === 'vietnam' ? 'badge-country-vn' : 'badge-country-kr'}">
+                      ${u.country === 'vietnam' ? '🇻🇳 베트남' : '🇰🇷 한국'}
+                    </span>
+                  </td>
+                  <td>${u.role}</td>
+                  <td style="font-size: 0.82rem;">${u.email}</td>
+                  <td><strong>${u.post_count}</strong>개</td>
+                  <td style="font-size: 0.8rem; color: var(--neutral-500);">${u.created_at ? u.created_at.slice(0, 10) : '-'}</td>
+                  <td>
+                    ${u.username === 'admin' ? '<span style="color:var(--neutral-400); font-size:0.8rem;">관리자 보호</span>' : `
+                      <button class="btn-danger-sm" onclick="window.HoweduBridge.adminDeleteUser('${u.id}')">
+                        탈퇴 처리
+                      </button>
+                    `}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      const filterInput = document.getElementById('admin-user-filter');
+      filterInput?.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        document.querySelectorAll('#admin-users-table tbody tr').forEach(row => {
+          const text = row.textContent.toLowerCase();
+          row.style.display = text.includes(query) ? '' : 'none';
+        });
+      });
+    }
+
+    async function renderAdminComments(container) {
+      const res = await fetch('/api/admin/comments');
+      const comments = await res.json();
+
+      container.innerHTML = `
+        <div style="margin-bottom: 12px; font-size: 0.88rem; color: var(--neutral-600);">
+          ${currentLang === 'vi' ? 'Quản lý các bình luận gần đây nhất trong cộng đồng' : '플랫폼 전체 게시글에 등록된 최근 댓글 관리'} (최대 100건)
+        </div>
+        <div class="admin-table-container">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>작성자</th>
+                <th>원문 게시글</th>
+                <th>댓글 내용 (다국어)</th>
+                <th>작성일시</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${comments.map(c => `
+                <tr id="admin-row-comment-${c.id}">
+                  <td>
+                    <strong>${c.author}</strong><br>
+                    <span style="font-size: 0.75rem; color: var(--neutral-500);">${c.country === 'vietnam' ? '🇻🇳 베트남' : '🇰🇷 한국'}</span>
+                  </td>
+                  <td style="max-width: 200px;">
+                    <a href="javascript:void(0)" onclick="window.HoweduBridge.openPost('${c.post_id}')" style="color: var(--primary-700); font-size: 0.82rem;">
+                      ${c.post_title_ko || c.post_title_vi || c.post_id}
+                    </a>
+                  </td>
+                  <td style="max-width: 350px;">
+                    <div style="font-size: 0.88rem;">${c.text_ko || c.text_vi || c.text_en}</div>
+                  </td>
+                  <td style="font-size: 0.78rem; color: var(--neutral-500);">${c.created_at ? c.created_at.slice(0, 16) : '-'}</td>
+                  <td>
+                    <button class="btn-danger-sm" onclick="window.HoweduBridge.adminDeleteComment('${c.id}')">
+                      삭제
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderAdminNoticeForm(container) {
+      container.innerHTML = `
+        <div style="background: white; border: 1px solid var(--neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+          <h4 style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+            <span>📢</span> ${currentLang === 'vi' ? 'Đăng thông báo chính thức toàn hệ thống' : '전체 공지사항 즉시 발송'}
+          </h4>
+          <p style="font-size: 0.88rem; color: var(--neutral-500); margin-bottom: 20px;">
+            ${currentLang === 'vi' ? 'Bài viết sẽ được tự động dịch sang cả 3 thứ tiếng (Việt/Hàn/Anh) và ghim lên đầu diễn đàn dưới danh nghĩa Ban điều hành.' : '작성한 공지는 베트남어, 한국어, 영어 3개 국어로 자동 번역되어 게시판 최상단에 등록됩니다.'}
+          </p>
+
+          <form id="admin-notice-form">
+            <div class="form-group">
+              <label class="form-label">${currentLang === 'vi' ? 'Tiêu đề thông báo' : '공지사항 제목'}</label>
+              <input type="text" class="form-input" id="admin-notice-title" required placeholder="${currentLang === 'vi' ? 'Ví dụ: [Thông báo] Cập nhật hướng dẫn sử dụng...' : '예: [공지] 2026 베·한 교사 세미나 개최 안내'}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">${currentLang === 'vi' ? 'Nội dung thông báo' : '공지사항 본문 내용'}</label>
+              <textarea class="form-textarea" id="admin-notice-content" rows="6" required placeholder="${currentLang === 'vi' ? 'Nhập nội dung thông báo chính thức...' : '선생님들께 전달할 공지사항 상세 내용을 입력하세요.'}"></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+              <button type="submit" class="btn btn-primary" id="btn-admin-submit-notice">
+                📢 ${currentLang === 'vi' ? 'Phát hành thông báo' : '공지사항 즉시 등록'}
+              </button>
+            </div>
+          </form>
+        </div>
+      `;
+
+      document.getElementById('admin-notice-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = document.getElementById('admin-notice-title').value.trim();
+        const content = document.getElementById('admin-notice-content').value.trim();
+        const submitBtn = document.getElementById('btn-admin-submit-notice');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+          const res = await fetch('/api/posts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              category: 'notice',
+              lang: currentLang,
+              author: 'HoweduBridge 운영팀',
+              country: 'korea',
+              title,
+              content
+            })
+          });
+
+          if (!res.ok) throw new Error('공지 등록 실패');
+          showToast(currentLang === 'vi' ? 'Đã đăng thông báo thành công!' : '공지사항이 성공적으로 등록되었습니다!');
+          adminModal.classList.remove('active');
+          await loadPosts();
+        } catch (err) {
+          alert(err.message);
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+        }
+      });
+    }
+  }
+
+  // ===== ADMIN ACTIONS =====
+  async function adminDeletePost(postId, closeDetailModal = false) {
+    const confirmMsg = currentLang === 'vi' ? 'Thầy/Cô có chắc chắn muốn xóa bài viết này không?' : '정말 이 게시글을 삭제하시겠습니까? (댓글도 함께 삭제됩니다)';
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/admin/posts/${postId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('삭제 실패');
+
+      document.getElementById(`admin-row-post-${postId}`)?.remove();
+      if (closeDetailModal) {
+        document.getElementById('post-modal')?.classList.remove('active');
+      }
+      showToast(currentLang === 'vi' ? 'Đã xóa bài viết thành công.' : '게시글이 삭제되었습니다.');
+      await loadPosts();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  async function adminDeleteUser(userId) {
+    const confirmMsg = currentLang === 'vi' ? 'Thầy/Cô có chắc chắn muốn xóa tài khoản này không?' : '정말 이 회원을 탈퇴 처리하시겠습니까?';
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '삭제 실패');
+
+      document.getElementById(`admin-row-user-${userId}`)?.remove();
+      showToast(currentLang === 'vi' ? 'Đã xóa người dùng thành công.' : '회원이 탈퇴 처리되었습니다.');
+      await renderMembers();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  async function adminDeleteComment(commentId) {
+    const confirmMsg = currentLang === 'vi' ? 'Thầy/Cô có chắc chắn muốn xóa bình luận này không?' : '정말 이 댓글을 삭제하시겠습니까?';
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/admin/comments/${commentId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('삭제 실패');
+
+      document.getElementById(`admin-row-comment-${commentId}`)?.remove();
+      showToast(currentLang === 'vi' ? 'Đã xóa bình luận.' : '댓글이 삭제되었습니다.');
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
   // ===== TOAST =====
   function showToast(message) {
     const container = document.getElementById('toast-container');
@@ -1544,7 +2003,10 @@
     showToast,
     goToPage,
     openInfoModal,
-    switchBoardCategory
+    switchBoardCategory,
+    adminDeletePost,
+    adminDeleteUser,
+    adminDeleteComment
   };
   window.EduBridge = window.HoweduBridge;
 
