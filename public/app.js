@@ -1586,6 +1586,8 @@
           await renderAdminComments(body);
         } else if (tabName === 'notice') {
           renderAdminNoticeForm(body);
+        } else if (tabName === 'security') {
+          renderAdminSecurity(body);
         }
       } catch (err) {
         body.innerHTML = `<div style="color: #dc2626; padding: 20px;">Lỗi tải dữ liệu / 데이터 로딩 오류: ${err.message}</div>`;
@@ -1916,6 +1918,104 @@
           showToast(currentLang === 'vi' ? 'Đã đăng thông báo thành công!' : '공지사항이 성공적으로 등록되었습니다!');
           adminModal.classList.remove('active');
           await loadPosts();
+        } catch (err) {
+          alert(err.message);
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+        }
+      });
+    }
+
+    function renderAdminSecurity(container) {
+      container.innerHTML = `
+        <div style="background: white; border: 1px solid var(--neutral-200); border-radius: var(--radius-lg); padding: 28px; max-width: 580px; margin: 0 auto; box-shadow: var(--shadow-sm);">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: #fef3c7; color: #b45309; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; margin: 0 auto 12px;">⚙️</div>
+            <h4 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 6px;">
+              ${currentLang === 'vi' ? 'Đổi tên đăng nhập & Mật khẩu Quản trị' : currentLang === 'ko' ? '관리자 아이디 및 비밀번호 변경' : 'Change Admin Username & Password'}
+            </h4>
+            <p style="font-size: 0.85rem; color: var(--neutral-500); line-height: 1.5;">
+              ${currentLang === 'vi' ? 'Cập nhật tài khoản quản trị viên tối cao để đảm bảo an toàn cho nền tảng HoweduBridge.' : '시스템 최고 관리자의 로그인 아이디와 비밀번호를 안전하게 변경합니다. 변경 후 새 정보로 즉시 적용됩니다.'}
+            </p>
+          </div>
+
+          <form id="admin-security-form">
+            <div class="form-group" style="margin-bottom: 18px;">
+              <label class="form-label" style="font-weight: 600;">
+                🔒 ${currentLang === 'vi' ? 'Mật khẩu hiện tại (Bắt buộc)' : '현재 사용 중인 비밀번호'}
+              </label>
+              <input type="password" class="form-input" id="admin-sec-current-pwd" required placeholder="••••••••">
+            </div>
+
+            <div style="border-top: 1px dashed var(--neutral-200); margin: 20px 0; padding-top: 20px;">
+              <div class="form-group" style="margin-bottom: 18px;">
+                <label class="form-label" style="font-weight: 600;">
+                  👤 ${currentLang === 'vi' ? 'Tên đăng nhập mới (ID)' : '새 관리자 아이디 (ID)'}
+                </label>
+                <input type="text" class="form-input" id="admin-sec-new-username" required value="${currentUser?.username || 'admin'}" placeholder="admin_new">
+                <div style="font-size: 0.76rem; color: var(--neutral-400); margin-top: 4px;">* ${currentLang === 'vi' ? 'Tối thiểu 3 ký tự (chữ cái và số)' : '영문/숫자 조합 최소 3자 이상'}</div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 18px;">
+                <label class="form-label" style="font-weight: 600;">
+                  🔑 ${currentLang === 'vi' ? 'Mật khẩu mới' : '새 비밀번호'}
+                </label>
+                <input type="password" class="form-input" id="admin-sec-new-pwd" required placeholder="••••••••">
+                <div style="font-size: 0.76rem; color: var(--neutral-400); margin-top: 4px;">* ${currentLang === 'vi' ? 'Tối thiểu 4 ký tự' : '최소 4자 이상 입력'}</div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 24px;">
+                <label class="form-label" style="font-weight: 600;">
+                  ✅ ${currentLang === 'vi' ? 'Xác nhận mật khẩu mới' : '새 비밀번호 확인'}
+                </label>
+                <input type="password" class="form-input" id="admin-sec-confirm-pwd" required placeholder="••••••••">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="btn-admin-save-security" style="width: 100%; justify-content: center; padding: 12px; font-weight: 700;">
+              💾 ${currentLang === 'vi' ? 'Lưu thay đổi tài khoản' : '관리자 계정 정보 변경 저장'}
+            </button>
+          </form>
+        </div>
+      `;
+
+      document.getElementById('admin-security-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const currentPassword = document.getElementById('admin-sec-current-pwd').value;
+        const newUsername = document.getElementById('admin-sec-new-username').value.trim();
+        const newPassword = document.getElementById('admin-sec-new-pwd').value;
+        const confirmPassword = document.getElementById('admin-sec-confirm-pwd').value;
+
+        if (newPassword !== confirmPassword) {
+          alert(currentLang === 'vi' ? 'Mật khẩu xác nhận không trùng khớp.' : '새 비밀번호가 서로 일치하지 않습니다.');
+          return;
+        }
+
+        const submitBtn = document.getElementById('btn-admin-save-security');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+          const res = await fetch('/api/admin/change-credentials', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPassword, newUsername, newPassword })
+          });
+
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || '변경 실패');
+
+          // Update current user in memory and localStorage
+          currentUser = data.user;
+          try {
+            localStorage.setItem('howedubridge_user', JSON.stringify(currentUser));
+            localStorage.setItem('edubridge_user', JSON.stringify(currentUser));
+          } catch (_) {}
+
+          updateAuthUI();
+          showToast(currentLang === 'vi' ? 'Đã đổi tên đăng nhập và mật khẩu quản trị thành công!' : '관리자 아이디와 비밀번호가 성공적으로 변경되었습니다!');
+          
+          // Re-render form with updated username
+          renderAdminSecurity(container);
         } catch (err) {
           alert(err.message);
         } finally {

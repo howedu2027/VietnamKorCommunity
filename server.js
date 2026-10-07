@@ -391,7 +391,7 @@ app.post('/api/login', (req, res) => {
       email: user.email,
       initial: user.initial,
       avatarColor: user.avatar_color,
-      isAdmin: user.username === 'admin'
+      isAdmin: Boolean(user.is_admin === 1 || user.id === 'u_admin' || user.username === 'admin')
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -627,6 +627,70 @@ app.delete('/api/admin/comments/:id', (req, res) => {
   } catch (err) {
     console.error('Admin delete comment error:', err);
     res.status(500).json({ error: '댓글 삭제 실패' });
+  }
+});
+
+// --- Admin Change ID / Password ---
+app.post('/api/admin/change-credentials', (req, res) => {
+  try {
+    const db = getDb();
+    const { currentPassword, newUsername, newPassword } = req.body;
+
+    if (!currentPassword || !newUsername || !newPassword) {
+      return res.status(400).json({ error: '현재 비밀번호, 새 아이디, 새 비밀번호를 모두 입력해주세요.' });
+    }
+
+    const trimmedUsername = newUsername.trim();
+    const trimmedPassword = newPassword.trim();
+
+    if (trimmedUsername.length < 3) {
+      return res.status(400).json({ error: '새 아이디는 최소 3자 이상이어야 합니다.' });
+    }
+
+    if (trimmedPassword.length < 4) {
+      return res.status(400).json({ error: '새 비밀번호는 최소 4자 이상이어야 합니다.' });
+    }
+
+    // Find the admin user
+    const adminUser = db.prepare("SELECT * FROM users WHERE id = 'u_admin' OR is_admin = 1").get();
+    if (!adminUser) {
+      return res.status(404).json({ error: '관리자 계정을 찾을 수 없습니다.' });
+    }
+
+    if (adminUser.password !== currentPassword) {
+      return res.status(401).json({ error: '현재 비밀번호가 일치하지 않습니다.' });
+    }
+
+    // Check if new username is already taken by another user
+    const existing = db.prepare("SELECT id FROM users WHERE username = ? AND id != ?").get(trimmedUsername, adminUser.id);
+    if (existing) {
+      return res.status(400).json({ error: '이미 사용 중인 아이디입니다. 다른 아이디를 입력해주세요.' });
+    }
+
+    // Update username and password
+    db.prepare("UPDATE users SET username = ?, password = ? WHERE id = ?")
+      .run(trimmedUsername, trimmedPassword, adminUser.id);
+
+    const updatedAdmin = db.prepare("SELECT * FROM users WHERE id = ?").get(adminUser.id);
+
+    res.json({
+      success: true,
+      message: '관리자 아이디와 비밀번호가 성공적으로 변경되었습니다.',
+      user: {
+        id: updatedAdmin.id,
+        username: updatedAdmin.username,
+        name: updatedAdmin.name,
+        country: updatedAdmin.country,
+        role: updatedAdmin.role,
+        email: updatedAdmin.email,
+        initial: updatedAdmin.initial,
+        avatarColor: updatedAdmin.avatar_color,
+        isAdmin: true
+      }
+    });
+  } catch (err) {
+    console.error('Change admin credentials error:', err);
+    res.status(500).json({ error: '관리자 정보 변경 중 오류가 발생했습니다.' });
   }
 });
 

@@ -112,14 +112,20 @@ function initTables() {
 }
 
 function seedData() {
-  // Ensure admin user and post7 are always configured
+  // Ensure admin user, is_admin column, and post7 are always configured
   try {
-    const adminUser = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
+    try {
+      db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0;');
+    } catch (_) {}
+
+    const adminUser = db.prepare('SELECT id FROM users WHERE id = ?').get('u_admin');
     if (!adminUser) {
       db.prepare(`
-        INSERT INTO users (id, username, password, name, country, role, email, avatar_color, initial)
-        VALUES ('u_admin', 'admin', 'admin1234', 'HoweduBridge 관리자', 'korea', '시스템 총괄 관리자', 'admin@howedubridge.org', 'linear-gradient(135deg, #1e293b, #0f172a)', '관')
+        INSERT INTO users (id, username, password, name, country, role, email, avatar_color, initial, is_admin)
+        VALUES ('u_admin', 'admin', 'admin1234', 'HoweduBridge 관리자', 'korea', '시스템 총괄 관리자', 'admin@howedubridge.org', 'linear-gradient(135deg, #1e293b, #0f172a)', '관', 1)
       `).run();
+    } else {
+      db.prepare("UPDATE users SET is_admin = 1 WHERE id = 'u_admin'").run();
     }
     db.prepare("UPDATE posts SET author = 'HoweduBridge 운영팀', author_initial = 'H' WHERE id = 'post7'").run();
   } catch (_) {}
